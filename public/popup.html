@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>YouTube Transcript AI</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>YouTube Transcript AI</h1>
+      <div class="video-info">
+        <span>Video ID: </span>
+        <span id="video-id">-</span>
+      </div>
+    </div>
+    
+    <div class="content">
+      <div id="loading" class="hidden">
+        <div class="spinner"></div>
+        <p>Processing transcript...</p>
+      </div>
+      
+      <div id="results" class="hidden">
+        <div class="summary-section">
+          <h2>Summary</h2>
+          <p id="summary-text"></p>
+        </div>
+        
+        <div class="key-points-section">
+          <h2>Key Points</h2>
+          <ul id="key-points-list"></ul>
+        </div>
+      </div>
+      
+      <div id="error" class="hidden">
+        <p class="error-message"></p>
+      </div>
+    </div>
+    
+    <div class="footer">
+      <button id="summarize-btn">Summarize Video</button>
+    </div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html> 

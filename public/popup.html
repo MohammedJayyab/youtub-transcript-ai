@@ -6,41 +6,55 @@
 </head>
 <body>
   <div class="container">
-    <div class="header">
+    <header>
       <h1>YouTube Transcript AI</h1>
-      <div class="video-info">
-        <span>Video ID: </span>
-        <span id="video-id">-</span>
+      <div class="video-meta">
+        <span class="video-id-label">ID: </span>
+        <span id="video-id" class="video-id">-</span>
+        <div class="language-info">
+          <span class="language-label">Language: </span>
+          <span id="detected-language" class="detected-language">-</span>
+        </div>
       </div>
-    </div>
+    </header>
     
-    <div class="content">
-      <div id="loading" class="hidden">
+    <main>
+      <div id="loading" class="loading hidden">
         <div class="spinner"></div>
-        <p>Processing transcript...</p>
+        <p>Analyzing transcript...</p>
       </div>
       
-      <div id="results" class="hidden">
-        <div class="summary-section">
-          <h2>Summary</h2>
-          <p id="summary-text"></p>
-        </div>
+      <div id="results" class="results hidden">
+        <section class="result-section">
+          <h2>Abstract</h2>
+          <p id="abstract-text" class="content-text"></p>
+        </section>
         
-        <div class="key-points-section">
-          <h2>Key Points</h2>
-          <ul id="key-points-list"></ul>
-        </div>
+        <section class="result-section">
+          <h2>Key Concepts</h2>
+          <ul id="key-points-list" class="key-points"></ul>
+        </section>
+        
+        <section class="result-section">
+          <h2>Category</h2>
+          <p id="category-text" class="content-text"></p>
+        </section>
+        
+        <section class="result-section">
+          <h2>Detailed Summary</h2>
+          <p id="summary-text" class="content-text"></p>
+        </section>
       </div>
       
-      <div id="error" class="hidden">
+      <div id="error" class="error hidden">
         <p class="error-message"></p>
       </div>
-    </div>
+    </main>
     
-    <div class="footer">
-      <button id="summarize-btn">Summarize Video</button>
-    </div>
+    <footer>
+      <button id="summarize-btn" class="primary-btn">Analyze Video</button>
+    </footer>
   </div>
-  <script src="popup.js"></script>
+  <script src="popup.js" type="module"></script>
 </body>
 </html> 

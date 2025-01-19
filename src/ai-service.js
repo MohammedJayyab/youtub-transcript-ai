@@ -27,8 +27,10 @@ export class AIService {
     });
   }
 
-  async summarizeTranscript(transcript) {
+  async summarizeTranscript(transcript, language = 'en') {
     try {
+      console.log('AI Service processing transcript in language:', language); // Debug log
+      
       if (!transcript?.trim()) {
         throw new Error(UI_CONSTANTS.MESSAGES.NO_TRANSCRIPT);
       }
@@ -39,7 +41,7 @@ export class AIService {
       }
       console.log('API Key:', config.apiKey);
 
-      const response = await this.makeAPIRequest(transcript);
+      const response = await this.makeAPIRequest(transcript, language);
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -73,57 +75,131 @@ export class AIService {
     }
   }
 
-  async makeAPIRequest(transcript) {
+  async makeAPIRequest(transcript, language) {
     const url = `${config.apiUrl}${API_CONSTANTS.ENDPOINTS.CHAT}`;
     console.log('Making API request to:', url);
-    console.log('Using Authorization:', `Bearer ${config.apiKey}`);
+    console.log('Using language:', language); // Debug log
 
+    // Improved request configuration
     const requestBody = {
-      model: API_CONSTANTS.MODEL,
-      messages: [{
-        role: 'user',
-        content: PROMPTS.SUMMARIZE(transcript)
-      }],
-      temperature: API_CONSTANTS.TEMPERATURE,
-      max_tokens: API_CONSTANTS.MAX_TOKENS
+        model: API_CONSTANTS.MODEL,
+        messages: [{
+            role: 'user',
+            content: PROMPTS.SUMMARIZE(transcript, language)
+        }],
+        temperature: API_CONSTANTS.TEMPERATURE,
+        max_tokens: API_CONSTANTS.MAX_TOKENS,  // Increased from 2000 to 4000 for longer responses
+        stream: false      // Ensure we get complete response
     };
 
-    console.log('Request body:', JSON.stringify(requestBody, null, 2));
-    
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        // 'Authorization': `Bearer ${config.apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(requestBody),
-      timeout: API_CONSTANTS.TIMEOUT
+    console.log('Request configuration:', {
+        url,
+        model: requestBody.model,
+        maxTokens: requestBody.max_tokens,
+        temperature: requestBody.temperature
     });
 
-    console.log('Response status:', response.status);
-    return response;
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${config.apiKey}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(requestBody)
+        });
+
+        console.log('Response status:', response.status);
+        
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            console.error('API Error:', {
+                status: response.status,
+                statusText: response.statusText,
+                error: errorData
+            });
+            throw new Error(errorData.error?.message || 'API request failed');
+        }
+
+        return response;
+    } catch (error) {
+        console.error('API Request failed:', error);
+        throw error;
+    }
   }
 
   parseAIResponse(text) {
     try {
-      return {
-        summary: this.extractSummary(text),
-        keyPoints: this.extractKeyPoints(text)
-      };
+        console.log('Raw AI response:', text);
+
+        const response = {
+            abstract: '',
+            keyPoints: [],
+            category: '',
+            summary: ''
+        };
+
+        // Try both markdown and plain text formats
+        const patterns = {
+            abstract: [
+                /\*\*ABSTRACT:\*\*([\s\S]*?)(?=\*\*|$)/,  // Markdown
+                /ABSTRACT:\s*([\s\S]*?)(?=KEY CONCEPTS:|$)/i  // Plain text
+            ],
+            keyPoints: [
+                /\*\*KEY CONCEPTS:\*\*([\s\S]*?)(?=\*\*|$)/,
+                /KEY CONCEPTS:\s*([\s\S]*?)(?=CATEGORY:|$)/i
+            ],
+            category: [
+                /\*\*CATEGORY:\*\*([\s\S]*?)(?=\*\*|$)/,
+                /CATEGORY:\s*([\s\S]*?)(?=SUMMARY:|$)/i
+            ],
+            summary: [
+                /\*\*SUMMARY:\*\*([\s\S]*?)(?=\*\*|$)/,
+                /SUMMARY:\s*([\s\S]*?)$/i
+            ]
+        };
+
+        // Extract each section using both patterns
+        for (const [section, sectionPatterns] of Object.entries(patterns)) {
+            for (const pattern of sectionPatterns) {
+                const match = text.match(pattern);
+                if (match && match[1].trim()) {
+                    if (section === 'keyPoints') {
+                        response.keyPoints = match[1]
+                            .split('\n')
+                            .map(line => line.trim())
+                            .filter(line => line.startsWith('•') || line.startsWith('-'))
+                            .map(line => line.replace(/^[•-]\s*/, '').trim())
+                            .filter(point => point.length > 0);
+                    } else {
+                        response[section] = match[1].trim();
+                    }
+                    break;
+                }
+            }
+        }
+
+        // Validation with detailed logging
+        const validations = {
+            abstract: response.abstract.length >= 10,
+            keyPoints: response.keyPoints.length > 0,
+            category: response.category.length > 0,
+            summary: response.summary.length >= 50
+        };
+
+        console.log('Validation results:', validations);
+
+        if (!validations.summary) {
+            console.error('Invalid or incomplete response:', response);
+            throw new Error('Failed to extract valid summary from AI response');
+        }
+
+        console.log('Successfully parsed response:', response);
+        return response;
     } catch (error) {
-      console.error('Error parsing AI response:', error);
-      throw new Error('Failed to parse AI response');
+        console.error('Error parsing AI response:', error);
+        console.error('Raw text:', text);
+        throw new Error(UI_CONSTANTS.MESSAGES.PARSE_ERROR);
     }
-  }
-
-  extractSummary(text) {
-    const keyPointsIndex = text.indexOf('Key points:');
-    return keyPointsIndex > -1 ? text.substring(0, keyPointsIndex).trim() : text.trim();
-  }
-
-  extractKeyPoints(text) {
-    return text.split('\n')
-      .filter(line => line.trim().startsWith('-'))
-      .map(line => line.trim().substring(1).trim());
   }
 } 

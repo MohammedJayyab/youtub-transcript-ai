@@ -100,7 +100,18 @@ class PopupUI {
       await this.ensureContentScript(tab.id);
       
       console.log('Sending message to content script...');
-      const response = await chrome.tabs.sendMessage(tab.id, { action: 'getTranscript' });
+      
+      // Use Promise wrapper for chrome.tabs.sendMessage
+      const response = await new Promise((resolve, reject) => {
+        chrome.tabs.sendMessage(tab.id, { action: 'getTranscript' }, response => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else {
+            resolve(response);
+          }
+        });
+      });
+
       console.log('Response from content script:', response);
       
       if (response.error) {
@@ -111,31 +122,109 @@ class PopupUI {
         throw new Error('No transcript available for this video');
       }
 
-      console.log('Transcript length:', response.transcript.length);
-      console.log('First 100 chars:', response.transcript.substring(0, 100));
+      // Update detected language display
+      const detectedLang = response.language || 'en';
+      const languageDisplay = document.getElementById('detected-language');
+      
+      if (languageDisplay) {
+        const languageNames = { en: 'English', ar: 'Arabic', de: 'German' };
+        languageDisplay.textContent = languageNames[detectedLang] || detectedLang;
+      }
+
+      // Set RTL for Arabic
+      if (detectedLang === 'ar') {
+        document.body.setAttribute('dir', 'rtl');
+      } else {
+        document.body.setAttribute('dir', 'ltr');
+      }
 
       console.log('Getting AI summary...');
-      const result = await this.aiService.summarizeTranscript(response.transcript);
-      console.log('AI summary result:', result);
+      const result = await this.aiService.summarizeTranscript(
+        response.transcript,
+        detectedLang
+      );
       
-      this.displayResults(result);
+      this.displayResults(result, detectedLang);
     } catch (error) {
       console.error('Popup Error:', error);
       this.showError(error.message);
     }
   }
 
-  displayResults(result) {
+  displayResults(result, language) {
     this.hideLoading();
     this.resultsDiv.classList.remove('hidden');
-    this.summaryText.textContent = result.summary;
     
-    // Display key points
+    // Abstract
+    const abstractText = document.getElementById('abstract-text');
+    if (abstractText) {
+        abstractText.textContent = result.abstract || 'No abstract available';
+    }
+    
+    // Key Points
     this.keyPointsList.innerHTML = '';
-    result.keyPoints.forEach(point => {
-      const li = document.createElement('li');
-      li.textContent = point;
-      this.keyPointsList.appendChild(li);
+    if (result.keyPoints && result.keyPoints.length > 0) {
+        result.keyPoints.forEach(point => {
+            if (point && point.trim()) {  // Only add non-empty points
+                const li = document.createElement('li');
+                li.textContent = point;
+                this.keyPointsList.appendChild(li);
+            }
+        });
+    }
+    
+    // If no points were added, show the fallback message
+    if (this.keyPointsList.children.length === 0) {
+        const li = document.createElement('li');
+        li.textContent = 'Processing key points...';
+        li.className = 'fallback-message';
+        this.keyPointsList.appendChild(li);
+        
+        // Retry parsing after a short delay
+        setTimeout(() => {
+            if (result.summary) {
+                const fallbackPoints = result.summary
+                    .split('.')
+                    .filter(sentence => sentence.trim().length > 20)
+                    .slice(0, 3)
+                    .map(sentence => sentence.trim() + '.');
+                
+                if (fallbackPoints.length > 0) {
+                    this.keyPointsList.innerHTML = '';
+                    fallbackPoints.forEach(point => {
+                        const li = document.createElement('li');
+                        li.textContent = point;
+                        this.keyPointsList.appendChild(li);
+                    });
+                }
+            }
+        }, 100);
+    }
+    
+    // Category
+    const categoryText = document.getElementById('category-text');
+    if (categoryText) {
+        categoryText.textContent = result.category || 'Uncategorized';
+    }
+    
+    // Summary
+    if (this.summaryText) {
+        this.summaryText.textContent = result.summary || 'No detailed summary available';
+    }
+
+    // Add language-specific text direction
+    const textDirection = language === 'ar' ? 'rtl' : 'ltr';
+    const textElements = [
+        document.getElementById('abstract-text'),
+        document.getElementById('category-text'),
+        this.summaryText,
+        this.keyPointsList
+    ];
+
+    textElements.forEach(element => {
+        if (element) {
+            element.setAttribute('dir', textDirection);
+        }
     });
   }
 

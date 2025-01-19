@@ -1,6 +1,6 @@
 export const API_CONSTANTS = {
   MODEL: 'deepseek-chat',
-  MAX_TOKENS: 2000,
+  MAX_TOKENS: 4000,
   TEMPERATURE: 0.7,
   TIMEOUT: 30000,
   ENDPOINTS: {
@@ -56,18 +56,41 @@ export const UI_CONSTANTS = {
 };
 
 export const PROMPTS = {
-  SUMMARIZE: (transcript) => `Please provide a concise summary of this video transcript, followed by key points starting with "-":
+  SUMMARIZE: (transcript, language = 'English') => {
+    // Map language codes to full names for better AI understanding
+    const languageNames = {
+      'en': 'English',
+      'ar': 'Arabic',
+      'de': 'German'
+    };
+    
+    const languageName = languageNames[language] || language;
+    console.log('Using language in prompt:', languageName); // Debug log
 
-${transcript}
+    return `Please analyze the following transcript in ${languageName} and provide:
+1. A brief abstract (2-3 sentences)
+2. Key concepts (bullet points)
+3. Category of the topic
+4. A detailed summary (4-5 paragraphs)
 
-Summary should include:
-1. Main topic or purpose
-2. Key arguments or information
-3. Important conclusions
+Please provide the analysis in the same language as the transcript (${languageName}).
 
-Key points should highlight:
-- Important facts or statistics
-- Main arguments or claims
-- Significant conclusions
-- Notable quotes or statements`
+Format your response exactly like this:
+ABSTRACT:
+(your abstract here)
+
+KEY CONCEPTS:
+• (concept 1)
+• (concept 2)
+...
+
+CATEGORY:
+(category here)
+
+SUMMARY:
+(your detailed summary here)
+
+Transcript:
+${transcript}`;
+  }
 }; 
